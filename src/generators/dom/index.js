@@ -8,8 +8,8 @@ import Generator from '../Generator.js';
 import * as shared from '../../shared/index.js';
 
 class DomGenerator extends Generator {
-	constructor ( parsed, source, names, visitors ) {
-		super( parsed, source, names, visitors );
+	constructor ( parsed, source, name, names, visitors, options ) {
+		super( parsed, source, name, names, visitors, options );
 		this.renderers = [];
 		this.uses = {};
 
@@ -132,6 +132,10 @@ class DomGenerator extends Generator {
 	}
 
 	helper ( name ) {
+		if ( this.options.dev && `${name}Dev` in shared ) {
+			name = `${name}Dev`;
+		}
+
 		this.uses[ name ] = true;
 
 		if ( !( name in this.aliases ) ) {
@@ -152,7 +156,7 @@ export default function dom ( parsed, source, options, names ) {
 	const format = options.format || 'es';
 	const name = options.name || 'SvelteComponent';
 
-	const generator = new DomGenerator( parsed, source, names, visitors );
+	const generator = new DomGenerator( parsed, source, name, names, visitors, options );
 
 	const { computations, templateProperties } = generator.parseJs();
 
@@ -211,6 +215,14 @@ export default function dom ( parsed, source, options, names ) {
 		_set: new CodeBuilder()
 	};
 
+	if ( options.dev ) {
+		builders._set.addBlock ( deindent`
+			if ( typeof newState !== 'object' ) {
+				throw new Error( 'Component .set was called without an object of data key-values to update.' );
+			}
+		`);
+	}
+
 	builders._set.addLine( 'var oldState = this._state;' );
 	builders._set.addLine( 'this._state = Object.assign( {}, oldState, newState );' );
 
@@ -245,9 +257,9 @@ export default function dom ( parsed, source, options, names ) {
 		builders.main.addBlock( `[✂${parsed.js.content.start}-${parsed.js.content.end}✂]` );
 	}
 
-	if ( parsed.css && options.css !== false ) {
+	 if ( parsed.css && options.css !== false ) {
 		builders.main.addBlock( deindent`
-			let addedCss = false;
+			var addedCss = false;
 			function addCss () {
 				var style = ${generator.helper( 'createElement' )}( 'style' );
 				style.textContent = ${JSON.stringify( processCss( parsed, generator.code ) )};
@@ -351,34 +363,20 @@ export default function dom ( parsed, source, options, names ) {
 		}
 	` );
 
-	if ( templateProperties.methods ) {
-		builders.main.addBlock( `${name}.prototype = template.methods;` );
-	}
-
 	const sharedPath = options.shared === true ? 'svelte/shared.js' : options.shared;
 
-	builders.main.addBlock( sharedPath ?
-		deindent`
-			${name}.prototype.get = ${generator.helper( 'get' )};
-			${name}.prototype.fire = ${generator.helper( 'fire' )};
-			${name}.prototype.observe = ${generator.helper( 'observe' )};
-			${name}.prototype.on = ${generator.helper( 'on' )};
-			${name}.prototype.set = ${generator.helper( 'set' )};
-			${name}.prototype._flush = ${generator.helper( '_flush' )};
-		` :
-		deindent`
-			${name}.prototype.get = ${shared.get};
+	if ( sharedPath ) {
+		const base = templateProperties.methods ? `{}, template.methods` : `{}`;
+		builders.main.addBlock( `${name}.prototype = Object.assign( ${base}, ${generator.helper( 'proto' )} );` );
+	} else {
+		if ( templateProperties.methods ) {
+			builders.main.addBlock( `${name}.prototype = template.methods;` );
+		}
 
-			${name}.prototype.fire = ${shared.fire};
-
-			${name}.prototype.observe = ${shared.observe};
-
-			${name}.prototype.on = ${shared.on};
-
-			${name}.prototype.set = ${shared.set};
-
-			${name}.prototype._flush = ${shared._flush};
-		` );
+		[ 'get', 'fire', 'observe', 'on', 'set', '_flush' ].forEach( methodName => {
+			builders.main.addLine( `${name}.prototype.${methodName} = ${generator.helper( methodName )};` );
+		});
+	}
 
 	// TODO deprecate component.teardown()
 	builders.main.addBlock( deindent`
@@ -387,7 +385,7 @@ export default function dom ( parsed, source, options, names ) {
 		};
 
 		${name}.prototype.teardown = ${name}.prototype.destroy = function destroy ( detach ) {
-			this.fire( 'teardown' );${templateProperties.ondestroy ? `\ntemplate.ondestroy.call( this );` : ``}
+			this.fire( 'destroy' );${templateProperties.ondestroy ? `\ntemplate.ondestroy.call( this );` : ``}
 
 			this._fragment.teardown( detach !== false );
 			this._fragment = null;
@@ -410,11 +408,9 @@ export default function dom ( parsed, source, options, names ) {
 			`import { ${names.join( ', ' )} } from ${JSON.stringify( sharedPath )}`
 		);
 	} else {
-		builders.main.addBlock( `var ${generator.aliases.dispatchObservers} = ${shared.dispatchObservers.toString()}` );
-
 		Object.keys( generator.uses ).forEach( key => {
 			const fn = shared[ key ]; // eslint-disable-line import/namespace
-			builders.main.addBlock( fn.toString() );
+			builders.main.addBlock( fn.toString().replace( /^function [^(]*/, 'function ' + generator.aliases[ key ] ) );
 		});
 	}
 

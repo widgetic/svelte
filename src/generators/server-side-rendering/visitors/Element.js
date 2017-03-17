@@ -1,9 +1,9 @@
 import Component from './Component.js';
-import voidElementNames from '../../../utils/voidElementNames.js';
+import isVoidElementName from '../../../utils/isVoidElementName.js';
 
 export default {
 	enter ( generator, node ) {
-		if ( node.name in generator.components ) {
+		if ( node.name in generator.components || node.name === ':Self' ) {
 			Component.enter( generator, node );
 			return;
 		}
@@ -39,12 +39,12 @@ export default {
 	},
 
 	leave ( generator, node ) {
-		if ( node.name in generator.components ) {
+		if ( node.name in generator.components || node.name === ':Self' ) {
 			Component.leave( generator, node );
 			return;
 		}
 
-		if ( !voidElementNames.test( node.name ) ) {
+		if ( !isVoidElementName( node.name ) ) {
 			generator.append( `</${node.name}>` );
 		}
 	}

@@ -4,10 +4,12 @@ import readStyle from '../read/style.js';
 import { readEventHandlerDirective, readBindingDirective } from '../read/directives.js';
 import { trimStart, trimEnd } from '../utils/trim.js';
 import { decodeCharacterReferences } from '../utils/html.js';
-import voidElementNames from '../../utils/voidElementNames.js';
+import isVoidElementName from '../../utils/isVoidElementName.js';
 
 const validTagName = /^\!?[a-zA-Z]{1,}:?[a-zA-Z0-9\-]*/;
 const invalidUnquotedAttributeCharacters = /[\s"'=<>\/`]/;
+
+const SELF = ':Self';
 
 const specials = {
 	script: {
@@ -82,7 +84,7 @@ export default function tag ( parser ) {
 	parser.allowWhitespace();
 
 	if ( isClosingTag ) {
-		if ( voidElementNames.test( name ) ) {
+		if ( isVoidElementName( name ) ) {
 			parser.error( `<${name}> is a void element and cannot have children, or a closing tag`, start );
 		}
 
@@ -128,13 +130,13 @@ export default function tag ( parser ) {
 
 	parser.allowWhitespace();
 
-	// special cases – <script> and <style>
-	if ( name in specials ) {
+	// special cases – top-level <script> and <style>
+	if ( name in specials && parser.stack.length === 1 ) {
 		const special = specials[ name ];
 
 		if ( parser[ special.property ] ) {
 			parser.index = start;
-			parser.error( `You can only have one <${name}> tag per component` );
+			parser.error( `You can only have one top-level <${name}> tag per component` );
 		}
 
 		parser.eat( '>', true );
@@ -153,7 +155,7 @@ export default function tag ( parser ) {
 
 	parser.current().children.push( element );
 
-	const selfClosing = parser.eat( '/' ) || voidElementNames.test( name );
+	const selfClosing = parser.eat( '/' ) || isVoidElementName( name );
 
 	parser.eat( '>', true );
 
@@ -169,6 +171,27 @@ export default function tag ( parser ) {
 
 function readTagName ( parser ) {
 	const start = parser.index;
+
+	if ( parser.eat( SELF ) ) {
+		// check we're inside a block, otherwise this
+		// will cause infinite recursion
+		let i = parser.stack.length;
+		let legal = false;
+
+		while ( i-- ) {
+			const fragment = parser.stack[i];
+			if ( fragment.type === 'IfBlock' || fragment.type === 'EachBlock' ) {
+				legal = true;
+				break;
+			}
+		}
+
+		if ( !legal ) {
+			parser.error( `<${SELF}> components can only exist inside if-blocks or each-blocks`, start );
+		}
+
+		return SELF;
+	}
 
 	const name = parser.readUntil( /(\s|\/|>)/ );
 	if ( !validTagName.test( name ) ) {

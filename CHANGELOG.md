@@ -1,5 +1,51 @@
 # Svelte changelog
 
+## 1.11.4
+
+* Dev mode warning for bad `component.observe` arguments ([#369](https://github.com/sveltejs/svelte/issues/369))
+* Translate `component.on('teardown', ...)` to `component.on('destroy', ...)` and add dev warning ([#365](https://github.com/sveltejs/svelte/issues/365))
+* Use shared prototype to save bytes ([#378](https://github.com/sveltejs/svelte/pull/378))
+
+## 1.11.3
+
+* Undo CSS behaviour change in 1.11.2 ([#372](https://github.com/sveltejs/svelte/issues/372))
+* Pin version of css-tree ([#370](https://github.com/sveltejs/svelte/pull/370))
+
+## 1.11.2
+
+* Add component CSS to each document a component is rendered to ([#331](https://github.com/sveltejs/svelte/issues/331))
+
+## 1.11.1
+
+* Fix two-way binding for components inside `each` blocks ([#356](https://github.com/sveltejs/svelte/issues/356))
+
+## 1.11.0
+
+* Add `format: 'eval'` and `svelte.create`, to create components directly from source code ([#345](https://github.com/sveltejs/svelte/issues/345))
+* Node 4 compatibility ([#109](https://github.com/sveltejs/svelte/issues/109))
+
+## 1.10.3
+
+* Prevent `'</script>'` string occurence breaking pages ([#349](https://github.com/sveltejs/svelte/pull/349))
+* Allow reference to whitelisted globals without properties ([#333](https://github.com/sveltejs/svelte/pull/333))
+* Don't remove `&nbsp;` incorrectly ([#348](https://github.com/sveltejs/svelte/issues/348))
+* `let` -> `var` in `addCss` block ([#351](https://github.com/sveltejs/svelte/pull/351))
+
+## 1.10.2
+
+* Accept any case for doctype declarations ([#336](https://github.com/sveltejs/svelte/issues/336))
+* Allow non-top-level `<script>` and `<style>` tags to pass through without processing ([#335](https://github.com/sveltejs/svelte/issues/335))
+
+## 1.10.1
+
+* typecheck argument in _set when in dev mode ([#342](https://github.com/sveltejs/svelte/issues/342))
+* Prevent duplicate helpers in non-shared mode ([#337](https://github.com/sveltejs/svelte/issues/337))
+
+## 1.10.0
+
+* Component self-references with `<:Self/>` ([#51](https://github.com/sveltejs/svelte/issues/51))
+* Two-way binding with `<select multiple>` ([#313](https://github.com/sveltejs/svelte/issues/313))
+
 ## 1.9.1
 
 * Better error for malformed event handlers ([#220](https://github.com/sveltejs/svelte/issues/220))

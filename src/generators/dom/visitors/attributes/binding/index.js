@@ -8,7 +8,9 @@ export default function createBinding ( generator, node, attribute, current, loc
 	const deep = parts.length > 1;
 	const contextual = parts[0] in current.contexts;
 
-	if ( contextual ) local.allUsedContexts.add( parts[0] );
+	if ( contextual && !~local.allUsedContexts.indexOf( parts[0] ) ) {
+		local.allUsedContexts.push( parts[0] );
+	}
 
 	if ( local.isComponent ) {
 		let obj;
@@ -125,8 +127,10 @@ export default function createBinding ( generator, node, attribute, current, loc
 			});
 		` );
 
+		const dependencies = parts[0] in current.contexts ? current.contextDependencies[ parts[0] ] : [ parts[0] ];
+
 		local.update.addBlock( deindent`
-			if ( !${local.name}_updating && '${parts[0]}' in changed ) {
+			if ( !${local.name}_updating && ${dependencies.map( dependency => `'${dependency}' in changed` ).join( '||' )} ) {
 				${local.name}._set({ ${attribute.name}: ${contextual ? attribute.value : `root.${attribute.value}`} });
 			}
 		` );
@@ -149,7 +153,6 @@ export default function createBinding ( generator, node, attribute, current, loc
 
 			updateElement = deindent`
 				var ${value} = ${contextual ? attribute.value : `root.${attribute.value}`};
-				console.log( 'value', ${value} );
 				for ( var ${i} = 0; ${i} < ${local.name}.options.length; ${i} += 1 ) {
 					var ${option} = ${local.name}.options[${i}];
 
@@ -174,11 +177,11 @@ export default function createBinding ( generator, node, attribute, current, loc
 
 		node.initialUpdate = updateElement;
 
-		local.update.addLine(
-			`if ( !${local.name}_updating ) {
+		local.update.addLine( deindent`
+			if ( !${local.name}_updating ) {
 				${updateElement}
-			}`
-		);
+			}
+		` );
 
 		generator.current.builders.teardown.addLine( deindent`
 			${generator.helper( 'removeEventListener' )}( ${local.name}, '${eventName}', ${handler} );

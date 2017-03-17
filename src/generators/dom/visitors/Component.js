@@ -2,17 +2,21 @@ import deindent from '../../../utils/deindent.js';
 import CodeBuilder from '../../../utils/CodeBuilder.js';
 import addComponentAttributes from './attributes/addComponentAttributes.js';
 
+function capDown ( name ) {
+	return `${name[0].toLowerCase()}${name.slice( 1 )}`;
+}
+
 export default {
 	enter ( generator, node ) {
 		const hasChildren = node.children.length > 0;
-		const name = generator.current.getUniqueName( `${node.name[0].toLowerCase()}${node.name.slice( 1 )}` );
+		const name = generator.current.getUniqueName( capDown( node.name === ':Self' ? generator.name : node.name ) );
 
 		const local = {
 			name,
 			namespace: generator.current.namespace,
 			isComponent: true,
 
-			allUsedContexts: new Set(),
+			allUsedContexts: [],
 
 			init: new CodeBuilder(),
 			update: new CodeBuilder()
@@ -24,10 +28,8 @@ export default {
 
 		addComponentAttributes( generator, node, local );
 
-		if ( local.allUsedContexts.size ) {
-			const contextNames = [...local.allUsedContexts];
-
-			const initialProps = contextNames.map( contextName => {
+		if ( local.allUsedContexts.length ) {
+			const initialProps = local.allUsedContexts.map( contextName => {
 				if ( contextName === 'root' ) return `root: root`;
 
 				const listName = generator.current.listNames[ contextName ];
@@ -36,7 +38,7 @@ export default {
 				return `${listName}: ${listName},\n${indexName}: ${indexName}`;
 			}).join( ',\n' );
 
-			const updates = contextNames.map( contextName => {
+			const updates = local.allUsedContexts.map( contextName => {
 				if ( contextName === 'root' ) return `${name}._context.root = root;`;
 
 				const listName = generator.current.listNames[ contextName ];
@@ -104,9 +106,11 @@ export default {
 			componentInitProperties.push(`data: ${name}_initialData`);
 		}
 
+		const expression = node.name === ':Self' ? generator.name : `template.components.${node.name}`;
+
 		local.init.addBlockAtStart( deindent`
 			${statements.join( '\n\n' )}
-			var ${name} = new template.components.${node.name}({
+			var ${name} = new ${expression}({
 				${componentInitProperties.join(',\n')}
 			});
 		` );
